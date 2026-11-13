@@ -1,0 +1,52 @@
+name: Publicar web en Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/azure-static-web-apps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-static-web-apps-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validar y publicar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar archivos estáticos
+        run: |
+          test -s web/index.html
+          test -s web/styles.css
+          node --check web/app.js
+          python3 -m json.tool web/staticwebapp.config.json > /dev/null
+
+      - name: Comprobar configuración de Azure
+        env:
+          AZURE_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -z "$AZURE_DEPLOYMENT_TOKEN" ]; then
+            echo "::error::Configura AZURE_STATIC_WEB_APPS_API_TOKEN en Settings > Secrets and variables > Actions. Consulta README.md."
+            exit 1
+          fi
+
+      - name: Publicar en Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: web
+          api_location: ''
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
+          production_branch: main
