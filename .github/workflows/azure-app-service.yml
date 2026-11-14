@@ -1,0 +1,65 @@
+name: Deploy CV to Azure App Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/azure-app-service.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/azure-app-service.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-service-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate website files
+        run: |
+          test -s web/index.html
+          test -s web/styles.css
+          node --check web/app.js
+      - name: Package website
+        run: |
+          mkdir deploy
+          cp web/index.html web/styles.css web/app.js deploy/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: deploy/
+          if-no-files-found: error
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: website
+          path: deploy
+      - name: Sign in to Azure with OpenID Connect
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy to Windows App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: marinaserantescasals
+          package: deploy
