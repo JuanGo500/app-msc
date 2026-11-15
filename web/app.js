@@ -13,59 +13,6 @@ document.querySelectorAll('[data-filter]').forEach(button => {
 document.getElementById('print-cv').addEventListener('click', () => window.print());
 document.getElementById('year').textContent = new Date().getFullYear();
 
-const photoViewer = document.createElement('div');
-photoViewer.className = 'photo-viewer';
-photoViewer.innerHTML = `
-  <div class="photo-viewer__backdrop"></div>
-  <figure class="photo-viewer__content">
-    <img alt="">
-    <button class="photo-viewer__close" type="button" aria-label="Cerrar imagen"></button>
-    <button class="photo-viewer__button photo-viewer__prev" type="button" aria-label="Imagen anterior"></button>
-    <button class="photo-viewer__button photo-viewer__next" type="button" aria-label="Imagen siguiente"></button>
-    <figcaption class="photo-viewer__count" aria-live="polite"></figcaption>
-  </figure>`;
-document.body.append(photoViewer);
-
-const viewerImage = photoViewer.querySelector('img');
-const viewerCount = photoViewer.querySelector('.photo-viewer__count');
-let viewerImages = [];
-let viewerIndex = 0;
-let viewerTitle = '';
-
-const showViewerImage = index => {
-  viewerIndex = (index + viewerImages.length) % viewerImages.length;
-  photoViewer.classList.remove('is-landscape');
-  viewerImage.onload = () => {
-    photoViewer.classList.toggle('is-landscape', viewerImage.naturalWidth > viewerImage.naturalHeight);
-    viewerCount.textContent = `${viewerIndex + 1} / ${viewerImages.length}`;
-  };
-  viewerImage.src = viewerImages[viewerIndex];
-  viewerImage.alt = `${viewerTitle}, imagen ${viewerIndex + 1} de ${viewerImages.length}`;
-};
-const openPhotoViewer = (images, index, title) => {
-  viewerImages = images;
-  viewerTitle = title;
-  photoViewer.classList.add('is-open');
-  document.body.classList.add('photo-viewer-open');
-  showViewerImage(index);
-  photoViewer.querySelector('.photo-viewer__close').focus();
-};
-const closePhotoViewer = () => {
-  photoViewer.classList.remove('is-open');
-  document.body.classList.remove('photo-viewer-open');
-};
-
-photoViewer.querySelector('.photo-viewer__backdrop').addEventListener('click', closePhotoViewer);
-photoViewer.querySelector('.photo-viewer__close').addEventListener('click', closePhotoViewer);
-photoViewer.querySelector('.photo-viewer__prev').addEventListener('click', () => showViewerImage(viewerIndex - 1));
-photoViewer.querySelector('.photo-viewer__next').addEventListener('click', () => showViewerImage(viewerIndex + 1));
-document.addEventListener('keydown', event => {
-  if (!photoViewer.classList.contains('is-open')) return;
-  if (event.key === 'Escape') closePhotoViewer();
-  if (event.key === 'ArrowLeft') showViewerImage(viewerIndex - 1);
-  if (event.key === 'ArrowRight') showViewerImage(viewerIndex + 1);
-});
-
 document.querySelectorAll('.project-carousel').forEach(carousel => {
   const images = carousel.dataset.images.split('|');
   const image = carousel.querySelector('[data-carousel-image]');
@@ -83,12 +30,31 @@ document.querySelectorAll('.project-carousel').forEach(carousel => {
 
   const updateAspectRatio = () => {
     carousel.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
-    project.classList.toggle('is-landscape', image.naturalWidth > image.naturalHeight);
+    const isLandscape = image.naturalWidth > image.naturalHeight;
+    if (project.classList.contains('is-selected')) {
+      project.classList.toggle('is-expanded', isLandscape);
+      buttons.forEach(button => button.setAttribute('aria-expanded', String(isLandscape)));
+    }
   };
   image.addEventListener('load', updateAspectRatio);
 
-  carousel.querySelector('.carousel-prev').addEventListener('click', () => showImage(current - 1));
-  carousel.querySelector('.carousel-next').addEventListener('click', () => showImage(current + 1));
-  image.addEventListener('click', () => openPhotoViewer(images, current, title));
+  const buttons = carousel.querySelectorAll('.carousel-button');
+  const selectProject = () => {
+    document.querySelectorAll('.projects article.is-selected').forEach(item => {
+      item.classList.remove('is-selected', 'is-expanded');
+      item.querySelectorAll('.carousel-button').forEach(button => button.setAttribute('aria-expanded', 'false'));
+    });
+    project.classList.add('is-selected');
+  };
+
+  carousel.querySelector('.carousel-prev').addEventListener('click', () => {
+    selectProject();
+    showImage(current - 1);
+  });
+  carousel.querySelector('.carousel-next').addEventListener('click', () => {
+    selectProject();
+    showImage(current + 1);
+  });
+  buttons.forEach(button => button.setAttribute('aria-expanded', 'false'));
   showImage(0);
 });
